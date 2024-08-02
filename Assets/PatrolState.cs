@@ -33,7 +33,7 @@ public class PatrolState : StateMachineBehaviour
 
         if (agent.remainingDistance <= agent.stoppingDistance)
 
-            agent.SetDestination(WayPoints[Random.Range(0, WayPoints.Count - 1)].position);
+            agent.SetDestination(WayPoints[Random.Range(0, WayPoints.Count-1)].position);
 
         timer += Time.deltaTime;
 
