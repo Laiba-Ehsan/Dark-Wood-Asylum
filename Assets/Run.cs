@@ -3,51 +3,34 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
-public class PatrolState : StateMachineBehaviour
+public class Run : StateMachineBehaviour
 {
-    float timer;
-    List<Transform> WayPoints = new List<Transform>();
     NavMeshAgent agent;
     Transform Player;
-    float ChaseRange = 8;
     // OnStateEnter is called when a transition starts and the state machine starts to evaluate this state
     override public void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
     {
-        Player = GameObject.FindGameObjectWithTag("Player").transform;
-
         agent = animator.GetComponent<NavMeshAgent>();
-        agent.speed = 1.5f;
-        timer = 0;
-        Transform WayPointsObject = GameObject.FindGameObjectWithTag("WayPoints").transform;
-        foreach (Transform t in WayPointsObject)
-
-            WayPoints.Add(t);
-
-        agent.SetDestination(WayPoints[0].position);
-
+        Player = GameObject.FindGameObjectWithTag("Player").transform;
+        agent.speed = 3.5f;
     }
 
     // OnStateUpdate is called on each Update frame between OnStateEnter and OnStateExit callbacks
     override public void OnStateUpdate(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
     {
+        agent.SetDestination(Player.position);
 
-        if (agent.remainingDistance <= agent.stoppingDistance)
-
-            agent.SetDestination(WayPoints[Random.Range(0, WayPoints.Count)].position);
-
-        timer += Time.deltaTime;
-
-        if (timer > 10)
-            animator.SetBool("IsPatrolling", false);
-        float distance = Vector3.Distance(Player.position, animator.transform.position);
-        if (distance < ChaseRange)
-            animator.SetBool("IsChasing", true);
     }
 
     // OnStateExit is called when a transition ends and the state machine finishes evaluating this state
     override public void OnStateExit(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
     {
-        agent.SetDestination(agent.transform.position);
+        agent.SetDestination(animator.transform.position);
+        float distance = Vector3.Distance(Player.position, animator.transform.position);
+        if (distance > 15)
+            animator.SetBool("IsChasing", false);
+        if (distance < 2.5f)
+            animator.SetBool("IsAttacking", true);
     }
 
     // OnStateMove is called right after Animator.OnAnimatorMove()

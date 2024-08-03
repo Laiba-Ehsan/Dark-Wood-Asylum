@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
-public class PatrolState : StateMachineBehaviour
+public class Walk : StateMachineBehaviour
 {
     float timer;
-    List<Transform> WayPoints = new List<Transform>();
+    List<Transform> Points = new List<Transform>();
     NavMeshAgent agent;
     Transform Player;
     float ChaseRange = 8;
@@ -21,9 +21,9 @@ public class PatrolState : StateMachineBehaviour
         Transform WayPointsObject = GameObject.FindGameObjectWithTag("WayPoints").transform;
         foreach (Transform t in WayPointsObject)
 
-            WayPoints.Add(t);
+            Points.Add(t);
 
-        agent.SetDestination(WayPoints[0].position);
+        agent.SetDestination(Points[0].position);
 
     }
 
@@ -33,7 +33,7 @@ public class PatrolState : StateMachineBehaviour
 
         if (agent.remainingDistance <= agent.stoppingDistance)
 
-            agent.SetDestination(WayPoints[Random.Range(0, WayPoints.Count)].position);
+            agent.SetDestination(Points[Random.Range(0, Points.Count)].position);
 
         timer += Time.deltaTime;
 

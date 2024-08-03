@@ -7,6 +7,8 @@ TagManager:
   - CinemachineTarget
   - WayPoints
   - Dragon
+  - Points
+  - SoulEater
   layers:
   - Default
   - TransparentFX

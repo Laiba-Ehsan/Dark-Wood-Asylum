@@ -1,44 +1,25 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.AI;
 
-public class PatrolState : StateMachineBehaviour
+public class Idle : StateMachineBehaviour
 {
     float timer;
-    List<Transform> WayPoints = new List<Transform>();
-    NavMeshAgent agent;
     Transform Player;
     float ChaseRange = 8;
     // OnStateEnter is called when a transition starts and the state machine starts to evaluate this state
     override public void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
     {
-        Player = GameObject.FindGameObjectWithTag("Player").transform;
-
-        agent = animator.GetComponent<NavMeshAgent>();
-        agent.speed = 1.5f;
         timer = 0;
-        Transform WayPointsObject = GameObject.FindGameObjectWithTag("WayPoints").transform;
-        foreach (Transform t in WayPointsObject)
-
-            WayPoints.Add(t);
-
-        agent.SetDestination(WayPoints[0].position);
-
+        Player = GameObject.FindGameObjectWithTag("Player").transform;
     }
 
     // OnStateUpdate is called on each Update frame between OnStateEnter and OnStateExit callbacks
     override public void OnStateUpdate(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
     {
-
-        if (agent.remainingDistance <= agent.stoppingDistance)
-
-            agent.SetDestination(WayPoints[Random.Range(0, WayPoints.Count)].position);
-
         timer += Time.deltaTime;
-
-        if (timer > 10)
-            animator.SetBool("IsPatrolling", false);
+        if (timer > 5)
+            animator.SetBool("IsPatrolling", true);
         float distance = Vector3.Distance(Player.position, animator.transform.position);
         if (distance < ChaseRange)
             animator.SetBool("IsChasing", true);
@@ -47,7 +28,7 @@ public class PatrolState : StateMachineBehaviour
     // OnStateExit is called when a transition ends and the state machine finishes evaluating this state
     override public void OnStateExit(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
     {
-        agent.SetDestination(agent.transform.position);
+
     }
 
     // OnStateMove is called right after Animator.OnAnimatorMove()

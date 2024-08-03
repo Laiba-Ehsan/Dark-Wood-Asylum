@@ -22,5 +22,10 @@ public class arrow : MonoBehaviour
             other.GetComponent<Dragon>().TakeDamage(damageAmount);
         }
         Destroy(gameObject, 1);
+        if (other.tag == "SoulEater")
+        {
+            other.GetComponent<Enemy>().TakeDamage(damageAmount);
+        }
+        Destroy(gameObject, 1);
     }
 }
