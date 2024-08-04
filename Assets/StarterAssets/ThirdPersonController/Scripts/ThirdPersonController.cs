@@ -1,10 +1,9 @@
-﻿ using UnityEngine;
-#if ENABLE_INPUT_SYSTEM 
+﻿using Unity.VisualScripting;
+using UnityEngine;
+using UnityEngine.EventSystems; // Add this directive
+#if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
-
-/* Note: animations are called via the controller for both the character and capsule using animator null checks
- */
 
 namespace StarterAssets
 {
@@ -12,7 +11,7 @@ namespace StarterAssets
 #if ENABLE_INPUT_SYSTEM 
     [RequireComponent(typeof(PlayerInput))]
 #endif
-    public class ThirdPersonController : MonoBehaviour
+    public class ThirdPersonController : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler
     {
         [Header("Player")]
         [Tooltip("Move speed of the character in m/s")]
@@ -114,6 +113,10 @@ namespace StarterAssets
         public GameObject playerFollowCamera;
         public GameObject playerAimCamera;
 
+        public Vector2 startTouchPosition;
+        public Vector2 currentTouchPosition;
+        private bool isAiming = false;
+
         private bool IsCurrentDeviceMouse
         {
             get
@@ -121,11 +124,10 @@ namespace StarterAssets
 #if ENABLE_INPUT_SYSTEM
                 return _playerInput.currentControlScheme == "KeyboardMouse";
 #else
-				return false;
+                return false;
 #endif
             }
         }
-
 
         private void Awake()
         {
@@ -139,14 +141,14 @@ namespace StarterAssets
         private void Start()
         {
             _cinemachineTargetYaw = CinemachineCameraTarget.transform.rotation.eulerAngles.y;
-            
+
             _hasAnimator = TryGetComponent(out _animator);
             _controller = GetComponent<CharacterController>();
             _input = GetComponent<StarterAssetsInputs>();
 #if ENABLE_INPUT_SYSTEM 
             _playerInput = GetComponent<PlayerInput>();
 #else
-			Debug.LogError( "Starter Assets package is missing dependencies. Please use Tools/Starter Assets/Reinstall Dependencies to fix it");
+            Debug.LogError("Starter Assets package is missing dependencies. Please use Tools/Starter Assets/Reinstall Dependencies to fix it");
 #endif
 
             AssignAnimationIDs();
@@ -164,17 +166,17 @@ namespace StarterAssets
             GroundedCheck();
             Move();
             AimShoot();
+            
         }
 
-        private void AimShoot()
+        public void AimShoot()
         {
-            if (_input.isAiming && Grounded && !_input.sprint)
+            if (isAiming && Grounded && !_input.sprint)
             {
-                _animator.SetBool("Aiming", _input.isAiming);
+                _animator.SetBool("Aiming", isAiming);
                 _animator.SetBool("Shooting", _input.isShooting);
                 playerFollowCamera.SetActive(false);
                 playerAimCamera.SetActive(true);
-            
             }
             else
             {
@@ -185,10 +187,39 @@ namespace StarterAssets
             }
         }
 
-        public void Shoot()
+        // Event trigger methods for drag shooting
+        public void OnPointerDown(PointerEventData eventData)
         {
-            GameObject arrow = Instantiate(arrowObject, arrowPoint.position, transform.rotation);
-            arrow.GetComponent<Rigidbody>().AddForce(transform.forward *25f, ForceMode.Impulse);
+            startTouchPosition = eventData.position;
+            isAiming = true; // Start aiming
+        }
+
+        public void OnDrag(PointerEventData eventData)
+        {
+            if (isAiming)
+            {
+                currentTouchPosition = eventData.position;
+                // Update aim indicator or visual feedback here
+            }
+        }
+
+        public void OnPointerUp(PointerEventData eventData)
+        {
+            if (isAiming)
+            {
+                Vector2 endTouchPosition = eventData.position;
+                Vector2 dragVector = endTouchPosition - startTouchPosition;
+                ShootArrow(dragVector);
+                isAiming = false; // Stop aiming
+            }
+        }
+
+        public void ShootArrow(Vector2 dragVector)
+        {
+            Vector3 force = new Vector3(dragVector.x, dragVector.y, 0);
+            GameObject arrow = Instantiate(arrowObject, arrowPoint.position, arrowPoint.rotation);
+            Rigidbody rb = arrow.GetComponent<Rigidbody>();
+            rb.AddForce(force, ForceMode.Impulse);
         }
 
         private void LateUpdate()
@@ -208,10 +239,8 @@ namespace StarterAssets
         private void GroundedCheck()
         {
             // set sphere position, with offset
-            Vector3 spherePosition = new Vector3(transform.position.x, transform.position.y - GroundedOffset,
-                transform.position.z);
-            Grounded = Physics.CheckSphere(spherePosition, GroundedRadius, GroundLayers,
-                QueryTriggerInteraction.Ignore);
+            Vector3 spherePosition = new Vector3(transform.position.x, transform.position.y - GroundedOffset, transform.position.z);
+            Grounded = Physics.CheckSphere(spherePosition, GroundedRadius, GroundLayers, QueryTriggerInteraction.Ignore);
 
             // update animator if using character
             if (_hasAnimator)
@@ -225,7 +254,7 @@ namespace StarterAssets
             // if there is an input and camera position is not fixed
             if (_input.look.sqrMagnitude >= _threshold && !LockCameraPosition)
             {
-                //Don't multiply mouse input by Time.deltaTime;
+                // Don't multiply mouse input by Time.deltaTime;
                 float deltaTimeMultiplier = IsCurrentDeviceMouse ? 1.0f : Time.deltaTime;
 
                 _cinemachineTargetYaw += _input.look.x * deltaTimeMultiplier;
@@ -237,8 +266,7 @@ namespace StarterAssets
             _cinemachineTargetPitch = ClampAngle(_cinemachineTargetPitch, BottomClamp, TopClamp);
 
             // Cinemachine will follow this target
-            CinemachineCameraTarget.transform.rotation = Quaternion.Euler(_cinemachineTargetPitch + CameraAngleOverride,
-                _cinemachineTargetYaw, 0.0f);
+            CinemachineCameraTarget.transform.rotation = Quaternion.Euler(_cinemachineTargetPitch + CameraAngleOverride, _cinemachineTargetYaw, 0.0f);
         }
 
         private void Move()
@@ -259,13 +287,11 @@ namespace StarterAssets
             float inputMagnitude = _input.analogMovement ? _input.move.magnitude : 1f;
 
             // accelerate or decelerate to target speed
-            if (currentHorizontalSpeed < targetSpeed - speedOffset ||
-                currentHorizontalSpeed > targetSpeed + speedOffset)
+            if (currentHorizontalSpeed < targetSpeed - speedOffset || currentHorizontalSpeed > targetSpeed + speedOffset)
             {
                 // creates curved result rather than a linear one giving a more organic speed change
                 // note T in Lerp is clamped, so we don't need to clamp our speed
-                _speed = Mathf.Lerp(currentHorizontalSpeed, targetSpeed * inputMagnitude,
-                    Time.deltaTime * SpeedChangeRate);
+                _speed = Mathf.Lerp(currentHorizontalSpeed, targetSpeed * inputMagnitude, Time.deltaTime * SpeedChangeRate);
 
                 // round speed to 3 decimal places
                 _speed = Mathf.Round(_speed * 1000f) / 1000f;
@@ -285,21 +311,17 @@ namespace StarterAssets
             // if there is a move input rotate player when the player is moving
             if (_input.move != Vector2.zero)
             {
-                _targetRotation = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg +
-                                  _mainCamera.transform.eulerAngles.y;
-                float rotation = Mathf.SmoothDampAngle(transform.eulerAngles.y, _targetRotation, ref _rotationVelocity,
-                    RotationSmoothTime);
+                _targetRotation = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg + _mainCamera.transform.eulerAngles.y;
+                float rotation = Mathf.SmoothDampAngle(transform.eulerAngles.y, _targetRotation, ref _rotationVelocity, RotationSmoothTime);
 
                 // rotate to face input direction relative to camera position
                 transform.rotation = Quaternion.Euler(0.0f, rotation, 0.0f);
             }
 
-
             Vector3 targetDirection = Quaternion.Euler(0.0f, _targetRotation, 0.0f) * Vector3.forward;
 
             // move the player
-            _controller.Move(targetDirection.normalized * (_speed * Time.deltaTime) +
-                             new Vector3(0.0f, _verticalVelocity, 0.0f) * Time.deltaTime);
+            _controller.Move(targetDirection.normalized * (_speed * Time.deltaTime) + new Vector3(0.0f, _verticalVelocity, 0.0f) * Time.deltaTime);
 
             // update animator if using character
             if (_hasAnimator)
@@ -394,9 +416,7 @@ namespace StarterAssets
             else Gizmos.color = transparentRed;
 
             // when selected, draw a gizmo in the position of, and matching radius of, the grounded collider
-            Gizmos.DrawSphere(
-                new Vector3(transform.position.x, transform.position.y - GroundedOffset, transform.position.z),
-                GroundedRadius);
+            Gizmos.DrawSphere(new Vector3(transform.position.x, transform.position.y - GroundedOffset, transform.position.z), GroundedRadius);
         }
 
         private void OnFootstep(AnimationEvent animationEvent)
